@@ -92,16 +92,40 @@ export default function DashboardPage() {
         xhr.send(file);
       });
 
-      // Step 3: Transcribe using the uploaded URL (small JSON payload)
-      const transcribeRes = await fetch("/api/transcribe", {
+      // Step 3a: Submit transcription (returns immediately with transcript ID)
+      const submitRes = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audioUrl }),
       });
 
-      const data = await transcribeRes.json();
-      if (!transcribeRes.ok) {
-        throw new Error(data.error || "Transcription failed");
+      const submitData = await submitRes.json();
+      if (!submitRes.ok) {
+        throw new Error(submitData.error || "Failed to start transcription");
+      }
+
+      // Step 3b: Poll for completion every 4 seconds
+      const transcriptId = submitData.transcriptId;
+      let data;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        const statusRes = await fetch(
+          `/api/transcribe/status?id=${encodeURIComponent(transcriptId)}`
+        );
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "completed") {
+          data = statusData;
+          break;
+        }
+
+        if (statusData.status === "error" || !statusRes.ok) {
+          throw new Error(
+            statusData.error || "Transcription failed. Please try again."
+          );
+        }
+        // status is "processing" — continue polling
       }
 
       const transcription: TranscriptionResult = {
