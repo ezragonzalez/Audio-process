@@ -26,25 +26,26 @@ export interface TranscriptionResult {
 export interface MeetingSummary {
   id: string;
   transcriptionId: string;
-  type: SummaryType;
+  type: string;
   content: string;
   generatedAt: string;
   cost: number;
 }
 
-export type SummaryType =
-  | "overview"
-  | "speaker-breakdown"
-  | "action-items"
-  | "sales-meeting"
-  | "team-meeting"
-  | "presentation";
+export type SummaryType = string;
 
 export interface SummaryTypeConfig {
-  type: SummaryType;
+  type: string;
   label: string;
   description: string;
   icon: string;
+  prompt: string;
+}
+
+export interface CustomSummaryTypeConfig {
+  id: string;
+  label: string;
+  description: string;
   prompt: string;
 }
 

@@ -117,10 +117,13 @@ export default function TranscriptionView({
       </div>
 
       {/* Speaker labels */}
-      <div className="glass rounded-2xl p-5">
-        <h3 className="text-white/60 text-xs font-medium uppercase tracking-wider mb-3">
-          Speaker Names (click to rename)
+      <div className="glass rounded-2xl p-5 border border-purple-500/20 animate-fade-in">
+        <h3 className="text-white/60 text-xs font-medium uppercase tracking-wider mb-1">
+          Rename Speakers
         </h3>
+        <p className="text-white/30 text-xs mb-3">
+          Click any speaker to set their name — names carry into summaries
+        </p>
         <div className="flex flex-wrap gap-2">
           {speakers.map((speaker) => {
             const idx = getSpeakerIndex(speaker);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
+export const maxDuration = 60;
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
@@ -16,9 +18,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (
+      !process.env.OPENAI_API_KEY ||
+      process.env.OPENAI_API_KEY === "your_openai_api_key_here"
+    ) {
       return NextResponse.json(
-        { error: "OpenAI API key not configured" },
+        { error: "OpenAI API key not configured. Add OPENAI_API_KEY to your environment variables." },
         { status: 500 }
       );
     }
@@ -71,8 +76,7 @@ export async function POST(req: NextRequest) {
       reasoning: {
         effort: "medium",
       },
-      temperature: 0.3,
-      max_output_tokens: 4000,
+      max_output_tokens: 16000,
     });
 
     // Extract text content from output
@@ -99,9 +103,11 @@ export async function POST(req: NextRequest) {
       cost: Math.round(cost * 10000) / 10000,
     });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to generate summary";
     console.error("Summarization error:", error);
     return NextResponse.json(
-      { error: "Failed to generate summary. Please try again." },
+      { error: message },
       { status: 500 }
     );
   }

@@ -1,7 +1,8 @@
-import { TranscriptionResult, MeetingSummary } from "./types";
+import { TranscriptionResult, MeetingSummary, CustomSummaryTypeConfig } from "./types";
 
 const TRANSCRIPTIONS_KEY = "zoom_transcriptions";
 const SUMMARIES_KEY = "zoom_summaries";
+const CUSTOM_SUMMARY_TYPES_KEY = "zoom_custom_summary_types";
 const STORAGE_VERSION_KEY = "zoom_storage_version";
 const CURRENT_VERSION = 1;
 
@@ -85,4 +86,21 @@ export function updateTranscriptionSpeakerLabels(
     transcriptions[index].speakerLabels = speakerLabels;
     safeSetItem(TRANSCRIPTIONS_KEY, transcriptions);
   }
+}
+
+// Custom summary types
+export function getCustomSummaryTypes(): CustomSummaryTypeConfig[] {
+  return safeGetItem<CustomSummaryTypeConfig[]>(CUSTOM_SUMMARY_TYPES_KEY, []);
+}
+
+export function saveCustomSummaryType(config: CustomSummaryTypeConfig): void {
+  if (typeof window === "undefined") return;
+  const existing = getCustomSummaryTypes();
+  existing.push(config);
+  safeSetItem(CUSTOM_SUMMARY_TYPES_KEY, existing);
+}
+
+export function deleteCustomSummaryType(id: string): void {
+  const types = getCustomSummaryTypes().filter((t) => t.id !== id);
+  safeSetItem(CUSTOM_SUMMARY_TYPES_KEY, types);
 }
