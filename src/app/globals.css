@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white min-h-screen;
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-purple-500/40;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/[0.08] backdrop-blur-xl border border-white/[0.12] shadow-2xl;
+  }
+
+  .glass-hover {
+    @apply hover:bg-white/[0.12] hover:border-white/[0.18] transition-all duration-300;
+  }
+
+  .glass-strong {
+    @apply bg-white/[0.12] backdrop-blur-2xl border border-white/[0.18] shadow-2xl;
+  }
+
+  .glass-input {
+    @apply bg-white/[0.06] backdrop-blur-xl border border-white/[0.12]
+           focus:border-purple-400/50 focus:bg-white/[0.1] focus:ring-2 focus:ring-purple-400/20
+           transition-all duration-300 outline-none;
+  }
+
+  .glass-button {
+    @apply bg-white/[0.1] backdrop-blur-xl border border-white/[0.15]
+           hover:bg-white/[0.18] hover:border-white/[0.25] hover:shadow-lg hover:shadow-purple-500/10
+           active:scale-[0.98] transition-all duration-200;
+  }
+
+  .glass-button-primary {
+    @apply bg-gradient-to-r from-purple-600/80 to-blue-600/80 backdrop-blur-xl
+           border border-purple-400/30
+           hover:from-purple-500/90 hover:to-blue-500/90 hover:border-purple-400/50
+           hover:shadow-lg hover:shadow-purple-500/20
+           active:scale-[0.98] transition-all duration-200;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-purple-300 via-pink-300 to-blue-300 bg-clip-text text-transparent;
+  }
+
+  .gradient-text-subtle {
+    @apply bg-gradient-to-r from-white via-purple-100 to-white bg-clip-text text-transparent;
+  }
+
+  /* Animated background orbs */
+  .bg-orb {
+    @apply absolute rounded-full blur-3xl opacity-20 animate-pulse-slow;
+  }
+}
