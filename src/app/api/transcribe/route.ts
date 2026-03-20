@@ -8,8 +8,16 @@ const client = new AssemblyAI({
 // AssemblyAI pricing: $0.00025 per second of audio
 const COST_PER_SECOND = 0.00025;
 
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+
 export async function POST(req: NextRequest) {
   try {
+    // Auth check (defense-in-depth, middleware also checks)
+    const session = req.cookies.get("session")?.value;
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!process.env.ASSEMBLYAI_API_KEY) {
       return NextResponse.json(
         { error: "AssemblyAI API key not configured" },
@@ -22,6 +30,23 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    // Server-side MIME type validation
+    const mimeType = file.type;
+    if (!mimeType.startsWith("audio/") && !mimeType.startsWith("video/")) {
+      return NextResponse.json(
+        { error: `Invalid file type "${mimeType}". Only audio and video files are accepted.` },
+        { status: 400 }
+      );
+    }
+
+    // Server-side file size validation
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 500MB.` },
+        { status: 400 }
+      );
     }
 
     // Convert file to buffer

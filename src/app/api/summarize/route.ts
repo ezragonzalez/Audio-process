@@ -11,6 +11,12 @@ const OUTPUT_COST_PER_TOKEN = 0.0000006;
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth check (defense-in-depth, middleware also checks)
+    const session = req.cookies.get("session")?.value;
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },
@@ -20,9 +26,23 @@ export async function POST(req: NextRequest) {
 
     const { transcript, prompt, speakerLabels } = await req.json();
 
-    if (!transcript || !prompt) {
+    if (typeof transcript !== "string" || transcript.length === 0) {
       return NextResponse.json(
-        { error: "Transcript and prompt are required" },
+        { error: "Transcript is required" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof prompt !== "string" || prompt.length === 0) {
+      return NextResponse.json(
+        { error: "Prompt is required" },
+        { status: 400 }
+      );
+    }
+
+    if (transcript.length > 500_000) {
+      return NextResponse.json(
+        { error: "Transcript too long (max 500K characters)" },
         { status: 400 }
       );
     }

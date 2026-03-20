@@ -8,6 +8,12 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+
   body {
     @apply bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white min-h-screen;
     background-attachment: fixed;
@@ -80,5 +86,14 @@
   /* Animated background orbs */
   .bg-orb {
     @apply absolute rounded-full blur-3xl opacity-20 animate-pulse-slow;
+  }
+}
+
+@layer utilities {
+  .animation-delay-1000 {
+    animation-delay: 1s;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
   }
 }

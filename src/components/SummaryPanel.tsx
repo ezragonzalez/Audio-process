@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { TranscriptionResult, MeetingSummary, SUMMARY_TYPES, SummaryType } from "@/lib/types";
 import { formatCost, generateId } from "@/lib/format";
 import { saveSummary, getSummaries } from "@/lib/storage";
@@ -15,6 +17,8 @@ import {
   Copy,
   Check,
   DollarSign,
+  AlertCircle,
+  X,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -47,6 +51,7 @@ export default function SummaryPanel({
   );
   const [activeSummary, setActiveSummary] = useState<SummaryType | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Build readable transcript
   const buildTranscript = () => {
@@ -65,6 +70,7 @@ export default function SummaryPanel({
 
     setGenerating(type);
     setActiveSummary(type);
+    setError(null);
 
     try {
       const res = await fetch("/api/summarize", {
@@ -77,7 +83,10 @@ export default function SummaryPanel({
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to generate summary");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to generate summary");
+      }
 
       const data = await res.json();
 
@@ -91,10 +100,15 @@ export default function SummaryPanel({
       };
 
       saveSummary(summary);
+
+      // Fix cost double-counting: subtract old cost if regenerating
+      const existingCost = summaries[type]?.cost || 0;
+      onCostUpdate(data.cost - existingCost);
+
       setSummaries((prev) => ({ ...prev, [type]: summary }));
-      onCostUpdate(data.cost);
-    } catch (error) {
-      console.error("Summary generation error:", error);
+    } catch (err) {
+      console.error("Summary generation error:", err);
+      setError(err instanceof Error ? err.message : "Failed to generate summary");
     } finally {
       setGenerating(null);
     }
@@ -108,6 +122,20 @@ export default function SummaryPanel({
 
   return (
     <div className="space-y-6">
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 animate-fade-in">
+          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <p className="text-red-300/90 text-sm flex-1">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="text-white/30 hover:text-white/60 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Summary type buttons */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {SUMMARY_TYPES.map((config) => {
@@ -197,50 +225,13 @@ export default function SummaryPanel({
                         prose-strong:text-white/90
                         prose-ul:space-y-1 prose-ol:space-y-1
                         text-white/70 leading-relaxed text-sm"
-            dangerouslySetInnerHTML={{
-              __html: markdownToHtml(summaries[activeSummary].content),
-            }}
-          />
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {summaries[activeSummary].content}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
     </div>
   );
-}
-
-// Simple markdown to HTML converter
-function markdownToHtml(md: string): string {
-  let html = md
-    // Headers
-    .replace(/^### (.*$)/gm, '<h3 class="text-base mt-6 mb-2">$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2 class="text-lg mt-6 mb-3">$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1 class="text-xl mt-6 mb-3">$1</h1>')
-    // Bold and italic
-    .replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    // Checkboxes
-    .replace(
-      /^- \[ \] (.*$)/gm,
-      '<div class="flex items-start gap-2 my-1"><input type="checkbox" class="mt-1 accent-purple-500" /><span>$1</span></div>'
-    )
-    .replace(
-      /^- \[x\] (.*$)/gm,
-      '<div class="flex items-start gap-2 my-1"><input type="checkbox" checked class="mt-1 accent-purple-500" /><span class="line-through opacity-60">$1</span></div>'
-    )
-    // Unordered lists
-    .replace(/^- (.*$)/gm, '<li class="ml-4">$1</li>')
-    .replace(
-      /^(\d+)\. (.*$)/gm,
-      '<li class="ml-4 list-decimal">$2</li>'
-    )
-    // Line breaks
-    .replace(/\n\n/g, "</p><p>")
-    .replace(/\n/g, "<br />");
-
-  // Wrap in paragraph if not already wrapped
-  if (!html.startsWith("<")) {
-    html = `<p>${html}</p>`;
-  }
-
-  return html;
 }

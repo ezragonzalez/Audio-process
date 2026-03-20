@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { TranscriptionResult } from "@/lib/types";
 import { formatTimestamp, formatDuration } from "@/lib/format";
-import { Clock, Users, MessageSquare, Edit3, Check } from "lucide-react";
+import { Clock, Users, MessageSquare, Edit3, Check, Download } from "lucide-react";
 
 // Speaker colors
 const SPEAKER_COLORS = [
@@ -40,6 +40,7 @@ export default function TranscriptionView({
   const [editingSpeaker, setEditingSpeaker] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [labels, setLabels] = useState(transcription.speakerLabels);
+  const escapePressedRef = useRef(false);
 
   const speakers = Object.keys(labels);
 
@@ -50,15 +51,38 @@ export default function TranscriptionView({
   const handleEditStart = (speaker: string) => {
     setEditingSpeaker(speaker);
     setEditValue(labels[speaker] || speaker);
+    escapePressedRef.current = false;
   };
 
   const handleEditSave = () => {
+    if (escapePressedRef.current) return;
     if (editingSpeaker && editValue.trim()) {
       const newLabels = { ...labels, [editingSpeaker]: editValue.trim() };
       setLabels(newLabels);
       onSpeakerLabelChange(newLabels);
     }
     setEditingSpeaker(null);
+  };
+
+  const handleEditCancel = () => {
+    escapePressedRef.current = true;
+    setEditingSpeaker(null);
+  };
+
+  const handleExport = () => {
+    const lines = transcription.utterances.map((u) => {
+      const name = labels[u.speaker] || u.speaker;
+      const time = formatTimestamp(u.start);
+      return `[${time}] ${name}: ${u.text}`;
+    });
+    const text = lines.join("\n\n");
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${transcription.fileName.replace(/\.[^/.]+$/, "")}_transcript.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -83,6 +107,13 @@ export default function TranscriptionView({
             {transcription.utterances.length} segments
           </span>
         </div>
+        <button
+          onClick={handleExport}
+          className="glass rounded-2xl px-5 py-3 flex items-center gap-3 glass-hover"
+        >
+          <Download className="w-4 h-4 text-white/50" />
+          <span className="text-white/70 text-sm">Export .txt</span>
+        </button>
       </div>
 
       {/* Speaker labels */}
@@ -103,7 +134,11 @@ export default function TranscriptionView({
                       type="text"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleEditSave()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleEditSave();
+                        if (e.key === "Escape") handleEditCancel();
+                      }}
+                      onBlur={handleEditSave}
                       className="px-3 py-1.5 rounded-xl glass-input text-white text-sm w-40"
                       autoFocus
                     />

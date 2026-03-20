@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Zoom Transcription Studio",
   description: "AI-powered meeting transcription and summarization",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

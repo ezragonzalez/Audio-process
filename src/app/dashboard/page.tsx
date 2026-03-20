@@ -23,12 +23,15 @@ import {
 } from "@/lib/storage";
 import { generateId } from "@/lib/format";
 
+export type UploadStage = "idle" | "uploading" | "transcribing" | "done";
+
 type Tab = "upload" | "transcript" | "summaries" | "history";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("upload");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>("idle");
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [currentTranscription, setCurrentTranscription] =
     useState<TranscriptionResult | null>(null);
   const [pastTranscriptions, setPastTranscriptions] = useState<
@@ -38,60 +41,77 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check authentication
-    const isAuth = sessionStorage.getItem("authenticated");
-    if (isAuth !== "true") {
-      router.push("/");
-      return;
-    }
-    // Load past transcriptions
+    // Middleware handles auth — just load data
     setPastTranscriptions(getTranscriptions());
-  }, [router]);
+  }, []);
 
   const handleFileUpload = useCallback(async (file: File) => {
-    setIsProcessing(true);
     setError(null);
+    setUploadStage("uploading");
+    setUploadProgress(0);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
+      // Use XMLHttpRequest for upload progress tracking
+      const data = await new Promise<Record<string, unknown>>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/transcribe");
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+
+        xhr.upload.onload = () => {
+          setUploadStage("transcribing");
+        };
+
+        xhr.onload = () => {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(response);
+            } else {
+              reject(new Error(response.error || "Transcription failed"));
+            }
+          } catch {
+            reject(new Error("Invalid server response"));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error. Please try again."));
+        xhr.send(formData);
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Transcription failed");
-      }
-
-      const data = await res.json();
 
       const transcription: TranscriptionResult = {
         id: generateId(),
         fileName: file.name,
         date: new Date().toISOString(),
-        duration: data.duration,
-        utterances: data.utterances,
-        fullText: data.fullText,
-        speakerCount: data.speakerCount,
-        speakerLabels: data.speakerLabels,
-        cost: data.cost,
+        duration: data.duration as number,
+        utterances: data.utterances as TranscriptionResult["utterances"],
+        fullText: data.fullText as string,
+        speakerCount: data.speakerCount as number,
+        speakerLabels: data.speakerLabels as Record<string, string>,
+        cost: data.cost as TranscriptionResult["cost"],
       };
 
-      // Save and update state
       saveTranscription(transcription);
       setCurrentTranscription(transcription);
       setPastTranscriptions(getTranscriptions());
       setSummaryCost(0);
-      setActiveTab("transcript");
+      setUploadStage("done");
+      setTimeout(() => {
+        setUploadStage("idle");
+        setActiveTab("transcript");
+      }, 1000);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to process file"
       );
-    } finally {
-      setIsProcessing(false);
+      setUploadStage("idle");
     }
   }, []);
 
@@ -122,8 +142,8 @@ export default function DashboardPage() {
     [currentTranscription]
   );
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("authenticated");
+  const handleLogout = async () => {
+    await fetch("/api/auth", { method: "DELETE" });
     router.push("/");
   };
 
@@ -149,7 +169,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Tab navigation */}
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 overflow-x-auto min-w-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -163,7 +183,8 @@ export default function DashboardPage() {
                   onClick={() => !isDisabled && setActiveTab(tab.id)}
                   disabled={isDisabled}
                   className={`
-                    flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all duration-200
+                    flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-sm transition-all duration-200
+                    min-h-[44px]
                     ${isActive
                       ? "glass-strong text-white"
                       : "text-white/40 hover:text-white/60 hover:bg-white/[0.04]"
@@ -172,7 +193,7 @@ export default function DashboardPage() {
                   `}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="text-[10px] sm:text-sm">{tab.label}</span>
                 </button>
               );
             })}
@@ -180,7 +201,7 @@ export default function DashboardPage() {
 
           <button
             onClick={handleLogout}
-            className="p-2 rounded-xl text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all"
+            className="p-2 rounded-xl text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Logout"
           >
             <LogOut className="w-5 h-5" />
@@ -204,7 +225,8 @@ export default function DashboardPage() {
 
             <FileUpload
               onUpload={handleFileUpload}
-              isProcessing={isProcessing}
+              stage={uploadStage}
+              uploadProgress={uploadProgress}
             />
 
             {error && (

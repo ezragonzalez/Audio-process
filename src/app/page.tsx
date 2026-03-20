@@ -23,8 +23,9 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        sessionStorage.setItem("authenticated", "true");
         router.push("/dashboard");
+      } else if (res.status === 429) {
+        setError("Too many attempts. Please wait a minute.");
       } else {
         setError("Invalid password. Please try again.");
       }

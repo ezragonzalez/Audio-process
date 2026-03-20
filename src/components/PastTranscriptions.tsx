@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { TranscriptionResult } from "@/lib/types";
 import { formatDuration, formatDate, formatCost } from "@/lib/format";
 import {
@@ -23,6 +24,8 @@ export default function PastTranscriptions({
   onDelete,
   activeId,
 }: PastTranscriptionsProps) {
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
   if (transcriptions.length === 0) {
     return (
       <div className="glass rounded-2xl p-8 text-center">
@@ -36,54 +39,88 @@ export default function PastTranscriptions({
   }
 
   return (
-    <div className="space-y-2">
-      {transcriptions.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => onSelect(t)}
-          className={`w-full text-left p-4 rounded-2xl transition-all duration-200 group
-            ${t.id === activeId
-              ? "glass-strong border-purple-400/25"
-              : "glass glass-hover"
-            }`}
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h4 className="text-white/85 text-sm font-medium truncate pr-4">
-                {t.fileName}
-              </h4>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="flex items-center gap-1.5 text-white/35 text-xs">
-                  <Clock className="w-3 h-3" />
-                  {formatDuration(t.duration)}
-                </span>
-                <span className="flex items-center gap-1.5 text-white/35 text-xs">
-                  <Users className="w-3 h-3" />
-                  {t.speakerCount}
-                </span>
-                <span className="text-white/25 text-xs">
-                  {formatCost(t.cost.total)}
-                </span>
+    <>
+      <div className="space-y-2">
+        {transcriptions.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onSelect(t)}
+            className={`w-full text-left p-4 rounded-2xl transition-all duration-200 group
+              ${t.id === activeId
+                ? "glass-strong border-purple-400/25"
+                : "glass glass-hover"
+              }`}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <h4 className="text-white/85 text-sm font-medium truncate pr-4">
+                  {t.fileName}
+                </h4>
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="flex items-center gap-1.5 text-white/35 text-xs">
+                    <Clock className="w-3 h-3" />
+                    {formatDuration(t.duration)}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-white/35 text-xs">
+                    <Users className="w-3 h-3" />
+                    {t.speakerCount}
+                  </span>
+                  <span className="text-white/25 text-xs">
+                    {formatCost(t.cost.total)}
+                  </span>
+                </div>
+                <p className="text-white/25 text-xs mt-1.5">
+                  {formatDate(t.date)}
+                </p>
               </div>
-              <p className="text-white/25 text-xs mt-1.5">
-                {formatDate(t.date)}
-              </p>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(t.id);
+                  }}
+                  className="p-2 rounded-xl opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400/60" />
+                </button>
+                <ChevronRight className="w-4 h-4 text-white/20" />
+              </div>
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
+          </button>
+        ))}
+      </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="glass-strong rounded-2xl p-6 max-w-sm w-full animate-slide-up">
+            <h3 className="text-white/90 font-medium mb-2">
+              Delete Transcription
+            </h3>
+            <p className="text-white/50 text-sm mb-6">
+              This will permanently delete this transcription and all
+              associated summaries. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(t.id);
-                }}
-                className="p-2 rounded-xl opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded-xl glass-button text-white/60 text-sm"
               >
-                <Trash2 className="w-3.5 h-3.5 text-red-400/60" />
+                Cancel
               </button>
-              <ChevronRight className="w-4 h-4 text-white/20" />
+              <button
+                onClick={() => {
+                  onDelete(deleteTarget);
+                  setDeleteTarget(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-sm hover:bg-red-500/30 transition-all"
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </button>
-      ))}
-    </div>
+        </div>
+      )}
+    </>
   );
 }
