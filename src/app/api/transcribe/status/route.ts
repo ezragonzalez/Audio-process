@@ -58,9 +58,23 @@ export async function GET(req: NextRequest) {
     }));
 
     const speakers = new Set(utterances.map((u) => u.speaker));
+
+    // Use speaker identification mapping if available (auto-detected names)
+    const idMapping = (
+      transcript as Record<string, unknown>
+    ).speech_understanding as
+      | { response?: { speaker_identification?: { mapping?: Record<string, string> } } }
+      | undefined;
+    const nameMapping = idMapping?.response?.speaker_identification?.mapping;
+
     const speakerLabels: Record<string, string> = {};
     speakers.forEach((s) => {
-      speakerLabels[s] = s;
+      const letter = s.replace("Speaker ", "");
+      if (nameMapping && nameMapping[letter]) {
+        speakerLabels[s] = nameMapping[letter];
+      } else {
+        speakerLabels[s] = s;
+      }
     });
 
     return NextResponse.json({

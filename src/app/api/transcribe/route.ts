@@ -37,6 +37,13 @@ export async function POST(req: NextRequest) {
       speech_models: ["universal-3-pro"],
       speaker_labels: true,
       language_detection: true,
+      speech_understanding: {
+        request: {
+          speaker_identification: {
+            speaker_type: "name",
+          },
+        },
+      },
     });
 
     return NextResponse.json({ transcriptId: transcript.id });
