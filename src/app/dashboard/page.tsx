@@ -51,13 +51,19 @@ export default function DashboardPage() {
     setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Step 1: Get upload credentials from our server
+      const configRes = await fetch("/api/upload");
+      const config = await configRes.json();
+      if (!configRes.ok) {
+        throw new Error(config.error || "Failed to get upload config");
+      }
 
-      // Step 1: Upload file via Edge runtime (no body size limit)
-      const uploadUrl = await new Promise<string>((resolve, reject) => {
+      // Step 2: Upload file directly to AssemblyAI (bypasses Vercel's 4.5MB limit)
+      const audioUrl = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/upload");
+        xhr.open("POST", config.uploadUrl);
+        xhr.setRequestHeader("Authorization", config.authToken);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
@@ -73,9 +79,9 @@ export default function DashboardPage() {
           try {
             const response = JSON.parse(xhr.responseText);
             if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(response.uploadUrl);
+              resolve(response.upload_url);
             } else {
-              reject(new Error(response.error || "Upload failed"));
+              reject(new Error("Upload failed. Please try again."));
             }
           } catch {
             reject(new Error(`Upload failed (${xhr.status}). Please try again.`));
@@ -83,14 +89,14 @@ export default function DashboardPage() {
         };
 
         xhr.onerror = () => reject(new Error("Network error. Please try again."));
-        xhr.send(formData);
+        xhr.send(file);
       });
 
-      // Step 2: Transcribe using the uploaded URL (small JSON payload)
+      // Step 3: Transcribe using the uploaded URL (small JSON payload)
       const transcribeRes = await fetch("/api/transcribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioUrl: uploadUrl }),
+        body: JSON.stringify({ audioUrl }),
       });
 
       const data = await transcribeRes.json();
