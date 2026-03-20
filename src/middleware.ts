@@ -14,5 +14,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/transcribe", "/api/summarize"],
+  matcher: ["/dashboard/:path*", "/api/upload", "/api/transcribe", "/api/summarize"],
 };

@@ -8,8 +8,6 @@ const client = new AssemblyAI({
 // AssemblyAI Universal-3 Pro pricing: $0.21/hour = $0.0000583/second
 const COST_PER_SECOND = 0.21 / 3600;
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
-
 export async function POST(req: NextRequest) {
   try {
     // Auth check (defense-in-depth, middleware also checks)
@@ -25,40 +23,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const body = await req.json();
+    const { audioUrl } = body;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    // Server-side MIME type validation
-    const mimeType = file.type;
-    if (!mimeType.startsWith("audio/") && !mimeType.startsWith("video/")) {
+    if (!audioUrl || typeof audioUrl !== "string") {
       return NextResponse.json(
-        { error: `Invalid file type "${mimeType}". Only audio and video files are accepted.` },
+        { error: "No audio URL provided" },
         { status: 400 }
       );
     }
-
-    // Server-side file size validation
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 500MB.` },
-        { status: 400 }
-      );
-    }
-
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Upload to AssemblyAI
-    const uploadUrl = await client.files.upload(buffer);
 
     // Transcribe with speaker diarization using Universal-3 Pro (best model)
     const transcript = await client.transcripts.transcribe({
-      audio_url: uploadUrl,
+      audio_url: audioUrl,
       speech_model: "best",
       speaker_labels: true,
       language_detection: true,
@@ -72,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate cost
-    const durationSeconds = (transcript.audio_duration || 0);
+    const durationSeconds = transcript.audio_duration || 0;
     const transcriptionCost = durationSeconds * COST_PER_SECOND;
 
     // Map utterances

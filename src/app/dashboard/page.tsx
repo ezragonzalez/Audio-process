@@ -54,10 +54,10 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      // Use XMLHttpRequest for upload progress tracking
-      const data = await new Promise<Record<string, unknown>>((resolve, reject) => {
+      // Step 1: Upload file via Edge runtime (no body size limit)
+      const uploadUrl = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/transcribe");
+        xhr.open("POST", "/api/upload");
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
@@ -73,18 +73,30 @@ export default function DashboardPage() {
           try {
             const response = JSON.parse(xhr.responseText);
             if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(response);
+              resolve(response.uploadUrl);
             } else {
-              reject(new Error(response.error || "Transcription failed"));
+              reject(new Error(response.error || "Upload failed"));
             }
           } catch {
-            reject(new Error("Invalid server response"));
+            reject(new Error(`Upload failed (${xhr.status}). Please try again.`));
           }
         };
 
         xhr.onerror = () => reject(new Error("Network error. Please try again."));
         xhr.send(formData);
       });
+
+      // Step 2: Transcribe using the uploaded URL (small JSON payload)
+      const transcribeRes = await fetch("/api/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioUrl: uploadUrl }),
+      });
+
+      const data = await transcribeRes.json();
+      if (!transcribeRes.ok) {
+        throw new Error(data.error || "Transcription failed");
+      }
 
       const transcription: TranscriptionResult = {
         id: generateId(),
