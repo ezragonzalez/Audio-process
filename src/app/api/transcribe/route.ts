@@ -5,8 +5,8 @@ const client = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY || "",
 });
 
-// AssemblyAI pricing: $0.00025 per second of audio
-const COST_PER_SECOND = 0.00025;
+// AssemblyAI Universal-3 Pro pricing: $0.21/hour = $0.0000583/second
+const COST_PER_SECOND = 0.21 / 3600;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
@@ -56,9 +56,10 @@ export async function POST(req: NextRequest) {
     // Upload to AssemblyAI
     const uploadUrl = await client.files.upload(buffer);
 
-    // Transcribe with speaker diarization
+    // Transcribe with speaker diarization using Universal-3 Pro (best model)
     const transcript = await client.transcripts.transcribe({
       audio_url: uploadUrl,
+      speech_model: "best",
       speaker_labels: true,
       language_detection: true,
     });
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
+      transcriptId: transcript.id,
       utterances,
       fullText: transcript.text || "",
       duration: (transcript.audio_duration || 0) * 1000, // Convert to ms

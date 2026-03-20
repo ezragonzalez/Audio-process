@@ -80,6 +80,7 @@ export default function SummaryPanel({
           transcript: buildTranscript(),
           prompt: config.prompt,
           speakerLabels: transcription.speakerLabels,
+          transcriptId: transcription.transcriptId,
         }),
       });
 

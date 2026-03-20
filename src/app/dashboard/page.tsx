@@ -88,6 +88,7 @@ export default function DashboardPage() {
 
       const transcription: TranscriptionResult = {
         id: generateId(),
+        transcriptId: data.transcriptId as string | undefined,
         fileName: file.name,
         date: new Date().toISOString(),
         duration: data.duration as number,

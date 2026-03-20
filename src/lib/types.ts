@@ -8,6 +8,7 @@ export interface Utterance {
 
 export interface TranscriptionResult {
   id: string;
+  transcriptId?: string; // AssemblyAI transcript ID for LeMUR
   fileName: string;
   date: string;
   duration: number;

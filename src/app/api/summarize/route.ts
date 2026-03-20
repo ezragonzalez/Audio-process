@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { AssemblyAI } from "assemblyai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
+const client = new AssemblyAI({
+  apiKey: process.env.ASSEMBLYAI_API_KEY || "",
 });
 
-// GPT-4o-mini pricing: $0.15 per 1M input tokens, $0.60 per 1M output tokens
-const INPUT_COST_PER_TOKEN = 0.00000015;
-const OUTPUT_COST_PER_TOKEN = 0.0000006;
+// AssemblyAI LeMUR pricing with Claude Sonnet 4.6: $3.00 per 1M input tokens, ~$15 per 1M output tokens
+// Using conservative estimate for cost display
+const INPUT_COST_PER_TOKEN = 0.000003;
+const OUTPUT_COST_PER_TOKEN = 0.000015;
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,14 +18,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.ASSEMBLYAI_API_KEY) {
       return NextResponse.json(
-        { error: "OpenAI API key not configured" },
+        { error: "AssemblyAI API key not configured" },
         { status: 500 }
       );
     }
 
-    const { transcript, prompt, speakerLabels } = await req.json();
+    const { transcript, prompt, speakerLabels, transcriptId } = await req.json();
 
     if (typeof transcript !== "string" || transcript.length === 0) {
       return NextResponse.json(
@@ -60,29 +61,44 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a professional meeting analyst. You provide clear, well-structured summaries and analysis of meeting transcriptions. Use markdown formatting for readability. Be thorough but concise.",
-        },
-        {
-          role: "user",
-          content: `${prompt}\n\n---\n\nMEETING TRANSCRIPTION:\n\n${labeledTranscript}`,
-        },
-      ],
+    // Use LeMUR task with Claude Sonnet 4.6 for best quality summaries
+    const lemurParams: {
+      prompt: string;
+      final_model: string;
+      temperature: number;
+      max_output_size: number;
+      transcript_ids?: string[];
+      input_text?: string;
+    } = {
+      prompt: `${prompt}\n\nYou are a professional meeting analyst. Provide clear, well-structured analysis using markdown formatting. Be thorough but concise.`,
+      final_model: "anthropic/claude-sonnet-4-20250514",
       temperature: 0.3,
-      max_tokens: 4000,
-    });
+      max_output_size: 4000,
+    };
 
-    const content = completion.choices[0]?.message?.content || "";
-    const inputTokens = completion.usage?.prompt_tokens || 0;
-    const outputTokens = completion.usage?.completion_tokens || 0;
+    // If we have a transcript ID from AssemblyAI, reference it directly
+    // Otherwise fall back to passing the text directly
+    if (transcriptId) {
+      lemurParams.transcript_ids = [transcriptId];
+      // Also pass labeled transcript as context if labels were changed
+      if (labeledTranscript !== transcript) {
+        lemurParams.input_text = labeledTranscript;
+      }
+    } else {
+      lemurParams.input_text = labeledTranscript;
+    }
+
+    const response = await client.lemur.task(lemurParams);
+
+    const content = response.response || "";
+
+    // Estimate token usage for cost display
+    // Rough estimate: 1 token ≈ 4 characters
+    const estimatedInputTokens = Math.ceil(labeledTranscript.length / 4) + Math.ceil(prompt.length / 4);
+    const estimatedOutputTokens = Math.ceil(content.length / 4);
     const cost =
-      inputTokens * INPUT_COST_PER_TOKEN +
-      outputTokens * OUTPUT_COST_PER_TOKEN;
+      estimatedInputTokens * INPUT_COST_PER_TOKEN +
+      estimatedOutputTokens * OUTPUT_COST_PER_TOKEN;
 
     return NextResponse.json({
       content,
