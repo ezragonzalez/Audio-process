@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     // Submit transcription (non-blocking — returns immediately with transcript ID)
     const transcript = await client.transcripts.submit({
       audio_url: audioUrl,
-      speech_model: "best",
+      speech_models: ["universal-3-pro"],
       speaker_labels: true,
       language_detection: true,
     });
